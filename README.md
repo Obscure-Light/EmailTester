@@ -29,19 +29,9 @@ Applicazione Python (Tkinter) per testare l'invio di email tramite varie modalit
   (mittente, destinatari, server, credenziali) e gestisce la composizione
   del messaggio (inclusi allegati) e l'invio vero e proprio.
 
-- **requirements.txt** (opzionale)  
-  Da usare se presenti dipendenze aggiuntive. Tkinter, smtplib e altre
-  librerie usate in questo progetto sono tipicamente incluse nella
-  distribuzione standard di Python.
-
 ## Requisiti
 - Python 3.x (consigliato 3.7 o superiore).
 - **Tkinter** (incluso nella maggior parte delle installazioni Python
   su Windows, macOS e Linux, ma potresti doverlo installare manualmente
   su alcune distribuzioni Linux).
 
-## Installazione
-1. Clona il repository:
-   ```bash
-   git clone https://github.com/tuo-username/email_tester.git
-   cd email_tester
