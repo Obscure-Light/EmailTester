@@ -1,181 +1,44 @@
 """
 File gui.py
-Contiene la definizione dell'interfaccia grafica (Tkinter) e la logica di controllo
+Contiene la definizione dell'interfaccia grafica (Tkinter) migliorata e la logica di controllo
 per raccogliere i dati e invocare la funzione di invio email.
 """
 
 import tkinter as tk
-from tkinter import ttk, filedialog
+from tkinter import ttk, filedialog, messagebox
+import smtplib
+import os
 
 from email_service import invia_email
 
 # Variabili globali
 attachments = []
-body_format = None
 
 def avvia_gui():
     root = tk.Tk()
-    root.title("Tester Invio Email via SMTP/API - Opzione Token per API")
-    root.geometry("800x600")
+    root.title("Email Tester - SMTP/API con Token")
+    root.geometry("900x700")
     root.resizable(True, True)
+    root.minsize(800, 600)
 
     # Variabili controllate da Tk
     var_token_required = tk.BooleanVar(value=False)
     var_starttls_25 = tk.BooleanVar(value=False)
-    var_starttls_587 = tk.BooleanVar(value=False)
+    var_starttls_587 = tk.BooleanVar(value=True)  # Default a 587
     var_smtps_465 = tk.BooleanVar(value=False)
-    var_auth_method = tk.StringVar(value="none")
-    global body_format
+    var_auth_method = tk.StringVar(value="smtp")  # Default SMTP
     body_format = tk.StringVar(value="plain")
 
-    # Funzioni per la GUI
-    def update_port_and_mode():
-        """Aggiorna la porta e la modalità in base alla selezione dell'utente."""
-        starttls_25 = var_starttls_25.get()
-        starttls_587 = var_starttls_587.get()
-        smtps_465 = var_smtps_465.get()
+    # Stile per una GUI più moderna
+    style = ttk.Style()
+    style.theme_use('clam')
 
-        if starttls_25:
-            var_starttls_587.set(False)
-            var_smtps_465.set(False)
-            entry_port.config(state="normal")
-            entry_port.delete(0, tk.END)
-            entry_port.insert(0, "25")
-            entry_port.config(state="disabled")
-        elif starttls_587:
-            var_starttls_25.set(False)
-            var_smtps_465.set(False)
-            entry_port.config(state="normal")
-            entry_port.delete(0, tk.END)
-            entry_port.insert(0, "587")
-            entry_port.config(state="disabled")
-        elif smtps_465:
-            var_starttls_25.set(False)
-            var_starttls_587.set(False)
-            entry_port.config(state="normal")
-            entry_port.delete(0, tk.END)
-            entry_port.insert(0, "465")
-            entry_port.config(state="disabled")
-        else:
-            entry_port.config(state="normal")
-            entry_port.delete(0, tk.END)
+    # Configurazione del canvas scorrevole
+    main_container = ttk.Frame(root)
+    main_container.pack(fill="both", expand=True, padx=10, pady=10)
 
-    def on_auth_method_change():
-        """Modifica lo stato dei campi in base al metodo di autenticazione selezionato."""
-        auth_method = var_auth_method.get()
-        token_required = var_token_required.get()
-
-        if auth_method == "none":
-            entry_username.config(state="disabled")
-            entry_password.config(state="disabled")
-            entry_url_token.config(state="disabled")
-            entry_url_send.config(state="disabled")
-            entry_api_key.config(state="disabled")
-            entry_api_secret.config(state="disabled")
-            check_token_req.config(state="disabled")
-
-        elif auth_method == "smtp":
-            entry_username.config(state="normal")
-            entry_password.config(state="normal")
-            entry_url_token.config(state="disabled")
-            entry_url_send.config(state="disabled")
-            entry_api_key.config(state="disabled")
-            entry_api_secret.config(state="disabled")
-            check_token_req.config(state="disabled")
-
-        elif auth_method == "api":
-            entry_username.config(state="disabled")
-            entry_password.config(state="disabled")
-            entry_api_key.config(state="normal")
-            entry_api_secret.config(state="normal")
-            check_token_req.config(state="normal")
-
-            if token_required:
-                entry_url_token.config(state="normal")
-                entry_url_send.config(state="normal")
-            else:
-                entry_url_token.config(state="disabled")
-                entry_url_send.config(state="disabled")
-
-    def attach_file():
-        """Permette all'utente di selezionare e allegare un file."""
-        file_path = filedialog.askopenfilename()
-        if file_path:
-            attachments.append(file_path)
-            lbl_attachments.config(text=f"Allegati: {', '.join(attachments)}")
-
-    def remove_attachments():
-        """Rimuove tutti gli allegati."""
-        attachments.clear()
-        lbl_attachments.config(text="Allegati: Nessuno")
-
-    def test_connection():
-        """Testa la connessione al server SMTP."""
-        smtp_server = entry_smtp_server.get().strip()
-        smtp_port = entry_port.get().strip()
-        try:
-            with smtplib.SMTP(smtp_server, int(smtp_port), timeout=10) as server:
-                server.ehlo()
-            lbl_result.config(text="Connessione al server SMTP riuscita!", foreground="green")
-        except Exception as e:
-            lbl_result.config(text=f"Errore di connessione: {e}", foreground="red")
-
-    def send_email():
-        """Invoca la funzione di invio email con i dati raccolti dalla GUI."""
-        sender = entry_from.get().strip()
-        recipient = entry_to.get().strip()
-        cc = entry_cc.get().strip()
-        bcc = entry_bcc.get().strip()
-        subject = entry_subject.get().strip()
-        body = text_body.get("1.0", tk.END).strip()
-        nickname = entry_nickname.get().strip()
-        smtp_server = entry_smtp_server.get().strip()
-        smtp_port = entry_port.get().strip()
-        username = entry_username.get().strip()
-        password = entry_password.get().strip()
-        url_token = entry_url_token.get().strip()
-        url_send = entry_url_send.get().strip()
-        api_key = entry_api_key.get().strip()
-        api_secret = entry_api_secret.get().strip()
-        token_required = var_token_required.get()
-
-        starttls_25 = var_starttls_25.get()
-        starttls_587 = var_starttls_587.get()
-        smtps_465 = var_smtps_465.get()
-
-        auth_method = var_auth_method.get()
-
-        # Chiamata alla funzione di invio
-        risultato = invia_email(
-            sender=sender,
-            recipient=recipient,
-            cc=cc,
-            bcc=bcc,
-            subject=subject,
-            body=body,
-            nickname=nickname,
-            smtp_server=smtp_server,
-            smtp_port=smtp_port,
-            username=username,
-            password=password,
-            url_token=url_token,
-            url_send=url_send,
-            api_key=api_key,
-            api_secret=api_secret,
-            starttls_25=starttls_25,
-            starttls_587=starttls_587,
-            smtps_465=smtps_465,
-            auth_method=auth_method,
-            token_required=token_required,
-            body_format=body_format.get(),
-            attachments=attachments
-        )
-
-        lbl_result.config(text=risultato, foreground="green" if "successo" in risultato else "red")
-
-    # Creazione del layout scorrevole
-    canvas = tk.Canvas(root)
-    scrollbar = ttk.Scrollbar(root, orient="vertical", command=canvas.yview)
+    canvas = tk.Canvas(main_container, highlightthickness=0)
+    scrollbar = ttk.Scrollbar(main_container, orient="vertical", command=canvas.yview)
     scrollable_frame = ttk.Frame(canvas)
 
     scrollable_frame.bind(
@@ -186,150 +49,416 @@ def avvia_gui():
     canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
     canvas.configure(yscrollcommand=scrollbar.set)
 
+    # Bind mousewheel per scrolling
+    def _on_mousewheel(event):
+        canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+    
+    canvas.bind_all("<MouseWheel>", _on_mousewheel)
+
     canvas.pack(side="left", fill="both", expand=True)
     scrollbar.pack(side="right", fill="y")
 
-    main_frame = ttk.Frame(scrollable_frame, padding="10")
+    # Frame principale con padding
+    main_frame = ttk.Frame(scrollable_frame, padding="20")
     main_frame.grid(row=0, column=0, sticky="nsew")
 
-    # Sezione campi email
-    ttk.Label(main_frame, text="Mittente (From):").grid(row=0, column=0, sticky="e")
-    entry_from = ttk.Entry(main_frame, width=30)
-    entry_from.grid(row=0, column=1, pady=5)
+    # Configurazione colonne per una migliore distribuzione
+    main_frame.columnconfigure(1, weight=1)
 
-    ttk.Label(main_frame, text="Nickname (opzionale):").grid(row=1, column=0, sticky="e")
-    entry_nickname = ttk.Entry(main_frame, width=30)
-    entry_nickname.grid(row=1, column=1, pady=5)
+    row = 0
 
-    ttk.Label(main_frame, text="Destinatario (To):").grid(row=2, column=0, sticky="e")
-    entry_to = ttk.Entry(main_frame, width=30)
-    entry_to.grid(row=2, column=1, pady=5)
+    # === SEZIONE DATI EMAIL ===
+    email_frame = ttk.LabelFrame(main_frame, text="📧 Dati Email", padding="10")
+    email_frame.grid(row=row, column=0, columnspan=2, sticky="ew", pady=(0, 10))
+    email_frame.columnconfigure(1, weight=1)
 
-    ttk.Label(main_frame, text="Cc:").grid(row=3, column=0, sticky="e")
-    entry_cc = ttk.Entry(main_frame, width=30)
-    entry_cc.grid(row=3, column=1, pady=5)
+    ttk.Label(email_frame, text="Mittente (From):").grid(row=0, column=0, sticky="e", padx=(0, 10))
+    entry_from = ttk.Entry(email_frame, width=40)
+    entry_from.grid(row=0, column=1, sticky="ew", pady=2)
 
-    ttk.Label(main_frame, text="Bcc:").grid(row=4, column=0, sticky="e")
-    entry_bcc = ttk.Entry(main_frame, width=30)
-    entry_bcc.grid(row=4, column=1, pady=5)
+    ttk.Label(email_frame, text="Nome Visualizzato:").grid(row=1, column=0, sticky="e", padx=(0, 10))
+    entry_nickname = ttk.Entry(email_frame, width=40)
+    entry_nickname.grid(row=1, column=1, sticky="ew", pady=2)
 
-    ttk.Label(main_frame, text="Oggetto (Subject):").grid(row=5, column=0, sticky="e")
-    entry_subject = ttk.Entry(main_frame, width=30)
-    entry_subject.grid(row=5, column=1, pady=5)
+    ttk.Label(email_frame, text="Destinatario (To):").grid(row=2, column=0, sticky="e", padx=(0, 10))
+    entry_to = ttk.Entry(email_frame, width=40)
+    entry_to.grid(row=2, column=1, sticky="ew", pady=2)
 
-    # Scelta formato corpo email
-    ttk.Label(main_frame, text="Formato Corpo:").grid(row=6, column=0, sticky="e")
-    radio_plain = ttk.Radiobutton(main_frame, text="Testo", value="plain", variable=body_format)
-    radio_plain.grid(row=6, column=1, sticky="w")
-    radio_html = ttk.Radiobutton(main_frame, text="HTML", value="html", variable=body_format)
-    radio_html.grid(row=7, column=1, sticky="w")
+    ttk.Label(email_frame, text="Cc (separati da virgola):").grid(row=3, column=0, sticky="e", padx=(0, 10))
+    entry_cc = ttk.Entry(email_frame, width=40)
+    entry_cc.grid(row=3, column=1, sticky="ew", pady=2)
 
-    # Corpo email (Text widget)
-    ttk.Label(main_frame, text="Corpo (Body):").grid(row=8, column=0, sticky="ne")
-    text_body = tk.Text(main_frame, width=40, height=10)
-    text_body.grid(row=8, column=1, pady=5)
+    ttk.Label(email_frame, text="Bcc (separati da virgola):").grid(row=4, column=0, sticky="e", padx=(0, 10))
+    entry_bcc = ttk.Entry(email_frame, width=40)
+    entry_bcc.grid(row=4, column=1, sticky="ew", pady=2)
 
-    # Sezione server
-    ttk.Label(main_frame, text="Server SMTP:").grid(row=9, column=0, sticky="e")
-    entry_smtp_server = ttk.Entry(main_frame, width=30)
-    entry_smtp_server.grid(row=9, column=1, pady=5)
+    ttk.Label(email_frame, text="Oggetto:").grid(row=5, column=0, sticky="e", padx=(0, 10))
+    entry_subject = ttk.Entry(email_frame, width=40)
+    entry_subject.grid(row=5, column=1, sticky="ew", pady=2)
 
-    ttk.Label(main_frame, text="Porta:").grid(row=10, column=0, sticky="e")
-    entry_port = ttk.Entry(main_frame, width=30)
-    entry_port.grid(row=10, column=1, pady=5)
+    # Formato corpo
+    format_frame = ttk.Frame(email_frame)
+    format_frame.grid(row=6, column=1, sticky="w", pady=5)
+    ttk.Label(email_frame, text="Formato:").grid(row=6, column=0, sticky="e", padx=(0, 10))
+    ttk.Radiobutton(format_frame, text="Testo", value="plain", variable=body_format).pack(side="left", padx=(0, 10))
+    ttk.Radiobutton(format_frame, text="HTML", value="html", variable=body_format).pack(side="left")
 
-    # Check di protocollo
-    check_starttls_25 = ttk.Checkbutton(
-        main_frame, text="Usa STARTTLS (porta 25)",
-        variable=var_starttls_25, command=update_port_and_mode
-    )
-    check_starttls_25.grid(row=11, column=0, columnspan=2, sticky="w", pady=5)
+    # Corpo email
+    ttk.Label(email_frame, text="Corpo del messaggio:").grid(row=7, column=0, sticky="ne", padx=(0, 10), pady=(5, 0))
+    text_frame = ttk.Frame(email_frame)
+    text_frame.grid(row=7, column=1, sticky="ew", pady=5)
+    text_frame.columnconfigure(0, weight=1)
+    
+    text_body = tk.Text(text_frame, width=50, height=8, wrap="word")
+    text_scrollbar = ttk.Scrollbar(text_frame, orient="vertical", command=text_body.yview)
+    text_body.configure(yscrollcommand=text_scrollbar.set)
+    text_body.grid(row=0, column=0, sticky="ew")
+    text_scrollbar.grid(row=0, column=1, sticky="ns")
 
-    check_starttls_587 = ttk.Checkbutton(
-        main_frame, text="Usa STARTTLS (porta 587)",
-        variable=var_starttls_587, command=update_port_and_mode
-    )
-    check_starttls_587.grid(row=12, column=0, columnspan=2, sticky="w", pady=5)
+    row += 1
 
-    check_smtps_465 = ttk.Checkbutton(
-        main_frame, text="Usa SMTPS (porta 465)",
-        variable=var_smtps_465, command=update_port_and_mode
-    )
-    check_smtps_465.grid(row=13, column=0, columnspan=2, sticky="w", pady=5)
+    # === SEZIONE SERVER SMTP ===
+    server_frame = ttk.LabelFrame(main_frame, text="🖥️ Configurazione Server", padding="10")
+    server_frame.grid(row=row, column=0, columnspan=2, sticky="ew", pady=(0, 10))
+    server_frame.columnconfigure(1, weight=1)
 
-    # Metodo di autenticazione
-    ttk.Label(main_frame, text="Metodo Autenticazione:").grid(row=14, column=0, sticky="e")
-    radio_none = ttk.Radiobutton(
-        main_frame, text="Nessuna", variable=var_auth_method, value="none",
-        command=on_auth_method_change
-    )
-    radio_none.grid(row=14, column=1, sticky="w")
+    ttk.Label(server_frame, text="Server SMTP:").grid(row=0, column=0, sticky="e", padx=(0, 10))
+    entry_smtp_server = ttk.Entry(server_frame, width=40)
+    entry_smtp_server.grid(row=0, column=1, sticky="ew", pady=2)
 
-    radio_smtp = ttk.Radiobutton(
-        main_frame, text="Username/Password via SMTP", variable=var_auth_method, value="smtp",
-        command=on_auth_method_change
-    )
-    radio_smtp.grid(row=15, column=1, sticky="w")
+    ttk.Label(server_frame, text="Porta:").grid(row=1, column=0, sticky="e", padx=(0, 10))
+    entry_port = ttk.Entry(server_frame, width=40)
+    entry_port.grid(row=1, column=1, sticky="ew", pady=2)
+    entry_port.insert(0, "587")  # Default
 
-    radio_api = ttk.Radiobutton(
-        main_frame, text="API Token", variable=var_auth_method, value="api",
-        command=on_auth_method_change
-    )
-    radio_api.grid(row=16, column=1, sticky="w")
+    # Protocolli
+    protocol_frame = ttk.Frame(server_frame)
+    protocol_frame.grid(row=2, column=0, columnspan=2, sticky="w", pady=5)
 
-    # Credenziali
-    ttk.Label(main_frame, text="Username:").grid(row=17, column=0, sticky="e")
-    entry_username = ttk.Entry(main_frame, width=30)
-    entry_username.grid(row=17, column=1, pady=5)
+    def update_port_and_mode():
+        """Aggiorna la porta e la modalità in base alla selezione dell'utente."""
+        if var_starttls_25.get():
+            var_starttls_587.set(False)
+            var_smtps_465.set(False)
+            entry_port.delete(0, tk.END)
+            entry_port.insert(0, "25")
+        elif var_starttls_587.get():
+            var_starttls_25.set(False)
+            var_smtps_465.set(False)
+            entry_port.delete(0, tk.END)
+            entry_port.insert(0, "587")
+        elif var_smtps_465.get():
+            var_starttls_25.set(False)
+            var_starttls_587.set(False)
+            entry_port.delete(0, tk.END)
+            entry_port.insert(0, "465")
 
-    ttk.Label(main_frame, text="Password:").grid(row=18, column=0, sticky="e")
-    entry_password = ttk.Entry(main_frame, width=30, show="*")
-    entry_password.grid(row=18, column=1, pady=5)
+    ttk.Checkbutton(protocol_frame, text="STARTTLS (porta 25)", 
+                   variable=var_starttls_25, command=update_port_and_mode).pack(anchor="w")
+    ttk.Checkbutton(protocol_frame, text="STARTTLS (porta 587)", 
+                   variable=var_starttls_587, command=update_port_and_mode).pack(anchor="w")
+    ttk.Checkbutton(protocol_frame, text="SMTPS (porta 465)", 
+                   variable=var_smtps_465, command=update_port_and_mode).pack(anchor="w")
 
-    ttk.Label(main_frame, text="URL Token:").grid(row=19, column=0, sticky="e")
-    entry_url_token = ttk.Entry(main_frame, width=30)
-    entry_url_token.grid(row=19, column=1, pady=5)
+    row += 1
 
-    ttk.Label(main_frame, text="URL Send:").grid(row=20, column=0, sticky="e")
-    entry_url_send = ttk.Entry(main_frame, width=30)
-    entry_url_send.grid(row=20, column=1, pady=5)
+    # === SEZIONE AUTENTICAZIONE ===
+    auth_frame = ttk.LabelFrame(main_frame, text="🔐 Autenticazione", padding="10")
+    auth_frame.grid(row=row, column=0, columnspan=2, sticky="ew", pady=(0, 10))
+    auth_frame.columnconfigure(1, weight=1)
 
-    ttk.Label(main_frame, text="API Key (client_id):").grid(row=21, column=0, sticky="e")
-    entry_api_key = ttk.Entry(main_frame, width=30)
-    entry_api_key.grid(row=21, column=1, pady=5)
+    def on_auth_method_change():
+        """Modifica lo stato dei campi in base al metodo di autenticazione selezionato."""
+        auth_method = var_auth_method.get()
+        token_required = var_token_required.get()
 
-    ttk.Label(main_frame, text="API Secret (client_secret):").grid(row=22, column=0, sticky="e")
-    entry_api_secret = ttk.Entry(main_frame, width=30, show="*")
-    entry_api_secret.grid(row=22, column=1, pady=5)
+        # Reset stati
+        widgets_smtp = [entry_username, entry_password]
+        widgets_api = [entry_api_key, entry_api_secret, check_token_req]
+        widgets_token = [entry_url_token, entry_url_send]
 
-    check_token_req = ttk.Checkbutton(
-        main_frame, text="Richiede Token", variable=var_token_required,
-        command=on_auth_method_change
-    )
-    check_token_req.grid(row=23, column=0, columnspan=2, sticky="w", pady=5)
+        for widget in widgets_smtp + widgets_api + widgets_token:
+            widget.config(state="disabled")
 
-    # Gestione allegati
-    btn_attach = ttk.Button(main_frame, text="Allega File", command=attach_file)
-    btn_attach.grid(row=24, column=0, columnspan=2, pady=5)
+        if auth_method == "smtp":
+            for widget in widgets_smtp:
+                widget.config(state="normal")
+        elif auth_method == "api":
+            for widget in widgets_api:
+                widget.config(state="normal")
+            if token_required:
+                for widget in widgets_token:
+                    widget.config(state="normal")
 
-    btn_remove_attachments = ttk.Button(main_frame, text="Rimuovi Allegati", command=remove_attachments)
-    btn_remove_attachments.grid(row=25, column=0, columnspan=2, pady=5)
+    # Radio buttons per metodo autenticazione
+    auth_method_frame = ttk.Frame(auth_frame)
+    auth_method_frame.grid(row=0, column=0, columnspan=2, sticky="w", pady=5)
+    
+    ttk.Radiobutton(auth_method_frame, text="Nessuna autenticazione", 
+                   variable=var_auth_method, value="none", 
+                   command=on_auth_method_change).pack(anchor="w")
+    ttk.Radiobutton(auth_method_frame, text="SMTP (Username/Password)", 
+                   variable=var_auth_method, value="smtp", 
+                   command=on_auth_method_change).pack(anchor="w")
+    ttk.Radiobutton(auth_method_frame, text="API con Token", 
+                   variable=var_auth_method, value="api", 
+                   command=on_auth_method_change).pack(anchor="w")
 
-    lbl_attachments = ttk.Label(main_frame, text="Allegati: Nessuno", foreground="blue")
-    lbl_attachments.grid(row=26, column=0, columnspan=2, pady=5)
+    # Credenziali SMTP
+    ttk.Label(auth_frame, text="Username:").grid(row=1, column=0, sticky="e", padx=(0, 10))
+    entry_username = ttk.Entry(auth_frame, width=40)
+    entry_username.grid(row=1, column=1, sticky="ew", pady=2)
 
-    # Test connessione SMTP
-    btn_test_connection = ttk.Button(main_frame, text="Test Connessione", command=test_connection)
-    btn_test_connection.grid(row=27, column=0, columnspan=2, pady=5)
+    ttk.Label(auth_frame, text="Password:").grid(row=2, column=0, sticky="e", padx=(0, 10))
+    entry_password = ttk.Entry(auth_frame, width=40, show="*")
+    entry_password.grid(row=2, column=1, sticky="ew", pady=2)
 
-    # Invio email
-    btn_send = ttk.Button(main_frame, text="Invia", command=send_email)
-    btn_send.grid(row=28, column=0, columnspan=2, pady=10)
+    # Credenziali API
+    ttk.Label(auth_frame, text="API Key:").grid(row=3, column=0, sticky="e", padx=(0, 10))
+    entry_api_key = ttk.Entry(auth_frame, width=40)
+    entry_api_key.grid(row=3, column=1, sticky="ew", pady=2)
 
-    lbl_result = ttk.Label(main_frame, text="", foreground="blue")
-    lbl_result.grid(row=29, column=0, columnspan=2, pady=5)
+    ttk.Label(auth_frame, text="API Secret:").grid(row=4, column=0, sticky="e", padx=(0, 10))
+    entry_api_secret = ttk.Entry(auth_frame, width=40, show="*")
+    entry_api_secret.grid(row=4, column=1, sticky="ew", pady=2)
+
+    check_token_req = ttk.Checkbutton(auth_frame, text="Richiede Token OAuth", 
+                                     variable=var_token_required, command=on_auth_method_change)
+    check_token_req.grid(row=5, column=0, columnspan=2, sticky="w", pady=5)
+
+    ttk.Label(auth_frame, text="URL Token:").grid(row=6, column=0, sticky="e", padx=(0, 10))
+    entry_url_token = ttk.Entry(auth_frame, width=40)
+    entry_url_token.grid(row=6, column=1, sticky="ew", pady=2)
+
+    ttk.Label(auth_frame, text="URL Send:").grid(row=7, column=0, sticky="e", padx=(0, 10))
+    entry_url_send = ttk.Entry(auth_frame, width=40)
+    entry_url_send.grid(row=7, column=1, sticky="ew", pady=2)
+
+    row += 1
+
+    # === SEZIONE ALLEGATI ===
+    attachments_frame = ttk.LabelFrame(main_frame, text="📎 Allegati", padding="10")
+    attachments_frame.grid(row=row, column=0, columnspan=2, sticky="ew", pady=(0, 10))
+    attachments_frame.columnconfigure(1, weight=1)
+
+    def attach_file():
+        """Permette all'utente di selezionare e allegare un file."""
+        file_paths = filedialog.askopenfilenames(
+            title="Seleziona file da allegare",
+            filetypes=[("Tutti i file", "*.*"), ("Documenti", "*.pdf;*.doc;*.docx"), 
+                      ("Immagini", "*.jpg;*.jpeg;*.png;*.gif"), ("Archivi", "*.zip;*.rar")]
+        )
+        if file_paths:
+            for file_path in file_paths:
+                if file_path not in attachments:
+                    attachments.append(file_path)
+            update_attachments_display()
+
+    def remove_selected_attachment():
+        """Rimuove l'allegato selezionato."""
+        selection = listbox_attachments.curselection()
+        if selection:
+            index = selection[0]
+            attachments.pop(index)
+            update_attachments_display()
+        else:
+            messagebox.showwarning("Selezione", "Seleziona un allegato da rimuovere.")
+
+    def remove_all_attachments():
+        """Rimuove tutti gli allegati."""
+        if attachments and messagebox.askyesno("Conferma", "Rimuovere tutti gli allegati?"):
+            attachments.clear()
+            update_attachments_display()
+
+    def update_attachments_display():
+        """Aggiorna la visualizzazione degli allegati."""
+        listbox_attachments.delete(0, tk.END)
+        total_size = 0
+        for file_path in attachments:
+            filename = os.path.basename(file_path)
+            try:
+                size = os.path.getsize(file_path)
+                total_size += size
+                size_str = f"{size/1024:.1f} KB" if size < 1024*1024 else f"{size/(1024*1024):.1f} MB"
+                listbox_attachments.insert(tk.END, f"{filename} ({size_str})")
+            except:
+                listbox_attachments.insert(tk.END, f"{filename} (file non trovato)")
+        
+        if total_size > 0:
+            total_str = f"{total_size/1024:.1f} KB" if total_size < 1024*1024 else f"{total_size/(1024*1024):.1f} MB"
+            lbl_total_size.config(text=f"Dimensione totale: {total_str}")
+        else:
+            lbl_total_size.config(text="")
+
+    # Buttons per allegati
+    attachments_buttons = ttk.Frame(attachments_frame)
+    attachments_buttons.grid(row=0, column=0, columnspan=2, sticky="w", pady=5)
+    
+    ttk.Button(attachments_buttons, text="Aggiungi File", command=attach_file).pack(side="left", padx=(0, 5))
+    ttk.Button(attachments_buttons, text="Rimuovi Selezionato", command=remove_selected_attachment).pack(side="left", padx=(0, 5))
+    ttk.Button(attachments_buttons, text="Rimuovi Tutti", command=remove_all_attachments).pack(side="left")
+
+    # Listbox per allegati
+    attachments_list_frame = ttk.Frame(attachments_frame)
+    attachments_list_frame.grid(row=1, column=0, columnspan=2, sticky="ew", pady=5)
+    attachments_list_frame.columnconfigure(0, weight=1)
+
+    listbox_attachments = tk.Listbox(attachments_list_frame, height=4)
+    attachments_scrollbar = ttk.Scrollbar(attachments_list_frame, orient="vertical", command=listbox_attachments.yview)
+    listbox_attachments.configure(yscrollcommand=attachments_scrollbar.set)
+    listbox_attachments.grid(row=0, column=0, sticky="ew")
+    attachments_scrollbar.grid(row=0, column=1, sticky="ns")
+
+    lbl_total_size = ttk.Label(attachments_frame, text="", foreground="gray")
+    lbl_total_size.grid(row=2, column=0, columnspan=2, sticky="w")
+
+    row += 1
+
+    # === SEZIONE AZIONI ===
+    actions_frame = ttk.LabelFrame(main_frame, text="⚡ Azioni", padding="10")
+    actions_frame.grid(row=row, column=0, columnspan=2, sticky="ew", pady=(0, 10))
+
+    def test_connection():
+        """Testa la connessione al server SMTP."""
+        smtp_server = entry_smtp_server.get().strip()
+        smtp_port = entry_port.get().strip()
+        
+        if not smtp_server:
+            lbl_result.config(text="❌ Inserire il server SMTP", foreground="red")
+            return
+            
+        try:
+            smtp_port = int(smtp_port)
+        except ValueError:
+            lbl_result.config(text="❌ La porta deve essere un numero", foreground="red")
+            return
+
+        try:
+            lbl_result.config(text="🔄 Test connessione in corso...", foreground="blue")
+            root.update()
+            
+            if var_smtps_465.get():
+                server = smtplib.SMTP_SSL(smtp_server, smtp_port, timeout=10)
+            else:
+                server = smtplib.SMTP(smtp_server, smtp_port, timeout=10)
+                if var_starttls_25.get() or var_starttls_587.get():
+                    server.starttls()
+            
+            server.ehlo()
+            server.quit()
+            lbl_result.config(text="✅ Connessione al server riuscita!", foreground="green")
+        except Exception as e:
+            lbl_result.config(text=f"❌ Errore di connessione: {str(e)}", foreground="red")
+
+    def validate_form():
+        """Valida i dati del form prima dell'invio."""
+        errors = []
+        
+        if not entry_from.get().strip():
+            errors.append("Mittente richiesto")
+        if not entry_to.get().strip():
+            errors.append("Destinatario richiesto")
+        if not entry_smtp_server.get().strip():
+            errors.append("Server SMTP richiesto")
+        if not entry_port.get().strip():
+            errors.append("Porta richiesta")
+        
+        auth_method = var_auth_method.get()
+        if auth_method == "smtp":
+            if not entry_username.get().strip() or not entry_password.get().strip():
+                errors.append("Username e password richiesti per SMTP")
+        elif auth_method == "api":
+            if not entry_api_key.get().strip() or not entry_api_secret.get().strip():
+                errors.append("API Key e Secret richiesti")
+            if var_token_required.get():
+                if not entry_url_token.get().strip() or not entry_url_send.get().strip():
+                    errors.append("URL Token e Send richiesti")
+        
+        return errors
+
+    def send_email():
+        """Invoca la funzione di invio email con i dati raccolti dalla GUI."""
+        # Validazione
+        errors = validate_form()
+        if errors:
+            messagebox.showerror("Errori di validazione", "\n".join(f"• {error}" for error in errors))
+            return
+
+        # Conferma invio se ci sono allegati pesanti
+        total_size = sum(os.path.getsize(f) for f in attachments if os.path.exists(f))
+        if total_size > 10 * 1024 * 1024:  # 10 MB
+            if not messagebox.askyesno("Conferma", f"Gli allegati pesano {total_size/(1024*1024):.1f} MB. Continuare?"):
+                return
+
+        # Preparazione dati
+        lbl_result.config(text="📤 Invio in corso...", foreground="blue")
+        root.update()
+
+        # Chiamata alla funzione di invio
+        risultato = invia_email(
+            sender=entry_from.get().strip(),
+            recipient=entry_to.get().strip(),
+            cc=entry_cc.get().strip(),
+            bcc=entry_bcc.get().strip(),
+            subject=entry_subject.get().strip(),
+            body=text_body.get("1.0", tk.END).strip(),
+            nickname=entry_nickname.get().strip(),
+            smtp_server=entry_smtp_server.get().strip(),
+            smtp_port=entry_port.get().strip(),
+            username=entry_username.get().strip(),
+            password=entry_password.get().strip(),
+            url_token=entry_url_token.get().strip(),
+            url_send=entry_url_send.get().strip(),
+            api_key=entry_api_key.get().strip(),
+            api_secret=entry_api_secret.get().strip(),
+            starttls_25=var_starttls_25.get(),
+            starttls_587=var_starttls_587.get(),
+            smtps_465=var_smtps_465.get(),
+            auth_method=var_auth_method.get(),
+            token_required=var_token_required.get(),
+            body_format=body_format.get(),
+            attachments=attachments
+        )
+
+        # Visualizzazione risultato
+        if "successo" in risultato.lower():
+            lbl_result.config(text=f"✅ {risultato}", foreground="green")
+            if messagebox.askyesno("Successo", f"{risultato}\n\nVuoi pulire il form?"):
+                clear_form()
+        else:
+            lbl_result.config(text=f"❌ {risultato}", foreground="red")
+            messagebox.showerror("Errore", risultato)
+
+    def clear_form():
+        """Pulisce tutti i campi del form."""
+        entry_from.delete(0, tk.END)
+        entry_nickname.delete(0, tk.END)
+        entry_to.delete(0, tk.END)
+        entry_cc.delete(0, tk.END)
+        entry_bcc.delete(0, tk.END)
+        entry_subject.delete(0, tk.END)
+        text_body.delete("1.0", tk.END)
+        attachments.clear()
+        update_attachments_display()
+        lbl_result.config(text="")
+
+    # Buttons azioni
+    actions_buttons = ttk.Frame(actions_frame)
+    actions_buttons.pack(pady=10)
+    
+    ttk.Button(actions_buttons, text="🔍 Test Connessione", command=test_connection).pack(side="left", padx=(0, 10))
+    ttk.Button(actions_buttons, text="📧 Invia Email", command=send_email).pack(side="left", padx=(0, 10))
+    ttk.Button(actions_buttons, text="🗑️ Pulisci Form", command=clear_form).pack(side="left")
+
+    # Label risultato
+    lbl_result = ttk.Label(actions_frame, text="", font=("TkDefaultFont", 10, "bold"))
+    lbl_result.pack(pady=10)
 
     # Inizializzazione
     on_auth_method_change()
+    update_attachments_display()
+
+    # Focus sul primo campo
+    entry_from.focus()
 
     root.mainloop()
